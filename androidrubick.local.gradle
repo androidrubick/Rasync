@@ -1,0 +1,86 @@
+// Add `ARLog` & `propertyTrue` to all projects
+/**
+ * 我们能像这样打印log:
+ * <pre>
+ *     ARLog("{msg1}", "{msg2}", ...)
+ * </pre>
+ *
+ * 我们能像这样判断一个property是否等价于true:
+ * <pre>
+ *     propertyTrue("{field name}")
+ * </pre>
+ */
+allprojects {
+    project.ext.ARLog = { Object...msgs ->
+        msgs.each { msg ->
+            println "[$project.name] ${String.valueOf(msg)}"
+        }
+    }
+
+    project.ext.propertyValueTrue = { String val ->
+        return val == '1' || 'true'.equalsIgnoreCase(val)
+    }
+
+    project.ext.propertyTrue = { String name ->
+        if (project.hasProperty(name)) {
+            return propertyValueTrue(String.valueOf(project.property(name)))
+        }
+        return false
+    }
+}
+
+// Define local repository & maven cache home, for:
+// 1. Each SDK can use the common local repository;
+// 2. One SDK, which needs to clear its local maven cache, may use LOCAL_MAVEN_CACHE_HOME
+// 3. Delete local maven cache when uploadArchives
+
+def localUserHome = System.getProperty('user.home')
+def localMavenHome = new File(localUserHome, '.m2')
+def localMavenCacheHome = new File(localMavenHome, 'repository')
+def localRepoDir = new File(localMavenHome, '1-local-repo')
+if (!localRepoDir.exists()) {
+    localRepoDir.mkdirs()
+}
+def localRepoUrl = 'file://' + localRepoDir + '/'
+rootProject.extensions.add('LOCAL_MAVEN_CACHE_HOME', localMavenCacheHome.absolutePath)
+rootProject.extensions.add('LOCAL_REPO_HOME', localRepoDir.absolutePath)
+rootProject.extensions.add('LOCAL_REPO_URL', localRepoUrl)
+
+ARLog("LOCAL_REPO_URL: $LOCAL_MAVEN_CACHE_HOME")
+ARLog("LOCAL_REPO_URL: $LOCAL_REPO_HOME")
+ARLog("LOCAL_REPO_URL: $LOCAL_REPO_URL")
+
+def static validProject(project) {
+    if (project.group == null || project.group == '') {
+        return false
+    }
+    if (project.name == null || project.name == '') {
+        return false
+    }
+    if (project.version == null || project.version == '' || project.version == 'unspecified') {
+        return false
+    }
+    return true
+}
+
+allprojects {
+    repositories {
+        maven {
+            url LOCAL_REPO_URL
+        }
+    }
+
+    // 对满足条件（即发布）的模块增加行为
+    if (validProject(project)) {
+        gradle.taskGraph.afterTask { Task task ->
+            if (task.name == 'uploadArchives' && task.project == project) {
+                String subPath = MAVEN_PROJECT_GROUP.replace('.', File.separator)
+                subPath += File.separator
+                subPath += MAVEN_POM_ARTIFACT_ID
+                def myLocalMavenCacheDir = new File(LOCAL_MAVEN_CACHE_HOME, subPath)
+                delete myLocalMavenCacheDir
+                ARLog("delete cached dir: $myLocalMavenCacheDir")
+            }
+        }
+    }
+}

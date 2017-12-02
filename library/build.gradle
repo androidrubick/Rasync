@@ -1,0 +1,32 @@
+apply plugin: 'com.android.library'
+// use root project's module gradle script
+apply from: rootProject.file('androidrubick.module.gradle')
+
+project.group = MAVEN_PROJECT_GROUP
+version = MAVEN_PROJECT_VERSION
+
+android {
+    defaultConfig {
+        versionCode MAVEN_PROJECT_VERSION_CODE as int
+        versionName MAVEN_PROJECT_VERSION
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled propertyTrue('SDK_MINIFY_ENABLED')
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    compile fileTree(include: ['*.jar'], dir: 'libs')
+}
+
+if (propertyTrue('AR_SINGLE_LIB')) {
+    ARLog('single library mode')
+    // use root project's module gradle script
+    apply from: project.file('../androidrubick.release.gradle')
+} else {
+    ARLog('include for external project mode')
+}

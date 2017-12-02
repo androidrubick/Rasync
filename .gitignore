@@ -1,3 +1,10 @@
+# windows
+Thumbs.db
+
+# mac
+._.DS_Store
+.DS_Store
+
 # Built application files
 *.apk
 *.ap_
@@ -14,8 +21,11 @@ gen/
 out/
 
 # Gradle files
+gradle/wrapper
 .gradle/
 build/
+gradlew
+gradlew.bat
 
 # Local configuration file (sdk path, etc)
 local.properties
@@ -34,11 +44,7 @@ captures/
 
 # Intellij
 *.iml
-.idea/workspace.xml
-.idea/tasks.xml
-.idea/gradle.xml
-.idea/dictionaries
-.idea/libraries
+.idea/
 
 # Keystore files
 *.jks

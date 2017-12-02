@@ -1,0 +1,177 @@
+// Definitions of release tasks.
+apply plugin: 'maven'
+//使用signing plugin做数字签名
+apply plugin: 'signing'
+
+def isReleaseBuild() {
+    if (hasProperty('BUILD_RELEASE')) {
+        return propertyTrue('BUILD_RELEASE')
+    }
+    return propertyValueTrue(System.getProperty('BUILD_RELEASE'))
+}
+
+def getRepositoryUrl() {
+    if (isReleaseBuild()) {
+        return hasProperty('REPO_URL') ? REPO_URL
+                : "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+    }
+    return LOCAL_REPO_URL
+}
+
+def getSnapshotRepositoryUrl() {
+    if (isReleaseBuild()) {
+        return hasProperty('SNAPSHOT_REPO_URL') ? SNAPSHOT_REPO_URL
+                : "https://oss.sonatype.org/content/repositories/snapshots/"
+    }
+    return LOCAL_REPO_URL
+}
+
+def getRepositoryUsername() {
+    return hasProperty('REPO_USER') ? property('REPO_USER') : "foo"
+}
+
+def getRepositoryPassword() {
+    return hasProperty('REPO_PWD') ? property('REPO_PWD') : "bar"
+}
+
+def configPom(pom) {
+    pom.groupId = MAVEN_PROJECT_GROUP
+    pom.artifactId = MAVEN_POM_ARTIFACT_ID
+    pom.version = MAVEN_PROJECT_VERSION
+
+    pom.project {
+        name MAVEN_POM_NAME
+        artifactId MAVEN_POM_ARTIFACT_ID
+        packaging MAVEN_POM_PACKAGING
+        description "${MAVEN_POM_DESCRIPTION} [built at ${new Date().format('yyyyMMddHHmmssSSS')}]"
+        url POM_URL
+
+        scm {
+            url POM_SCM_URL
+            connection POM_SCM_CONNECTION
+            developerConnection POM_SCM_DEV_CONNECTION
+        }
+
+        licenses {
+            license {
+                name POM_LICENCE_NAME
+                url POM_LICENCE_URL
+                distribution POM_LICENCE_DIST
+            }
+        }
+
+        developers {
+            developer {
+                id POM_DEVELOPER_ID
+                name POM_DEVELOPER_NAME
+                email POM_DEVELOPER_EMAIL
+            }
+        }
+    }
+}
+
+afterEvaluate { project ->
+    version = MAVEN_PROJECT_VERSION
+    group = MAVEN_PROJECT_GROUP
+
+    signing {
+        required { isReleaseBuild() && gradle.taskGraph.hasTask("uploadArchives") }
+        sign configurations.archives
+    }
+
+    uploadArchives {
+        configuration = configurations.archives
+
+        repositories.mavenDeployer {
+            beforeDeployment {
+                MavenDeployment deployment -> signing.signPom(deployment)
+            }
+
+            if (isReleaseBuild()) {
+                ARLog('build release')
+                repository(url: getRepositoryUrl()) {
+                    authentication(userName: getRepositoryUsername(), password: getRepositoryPassword())
+                }
+                snapshotRepository(url: getSnapshotRepositoryUrl()) {
+                    authentication(userName: getRepositoryUsername(), password: getRepositoryPassword())
+                }
+            } else {
+                ARLog('build local')
+                repository(url: getRepositoryUrl())
+                snapshotRepository(url: getSnapshotRepositoryUrl())
+            }
+
+            ARLog("version<${MAVEN_PROJECT_VERSION}>")
+
+            configPom(pom)
+        }
+    }
+
+    if (project.getPlugins().hasPlugin('com.android.application') ||
+            project.getPlugins().hasPlugin('com.android.library')) {
+        ARLog('process android library')
+
+        task install(type: Upload, dependsOn: assemble) {
+            repositories.mavenInstaller {
+                configuration = configurations.archives
+
+                configPom(pom)
+            }
+        }
+
+        task androidJavadocs(type: Javadoc) {
+            source = android.sourceSets.main.java.source
+            classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+        }
+
+        task androidJavadocsJar(type: Jar, dependsOn: androidJavadocs) {
+            classifier = 'javadoc'
+            from androidJavadocs.destinationDir
+        }
+
+        task androidSourcesJar(type: Jar) {
+            classifier = 'sources'
+            from android.sourceSets.main.java.source
+        }
+    } else {
+        ARLog('no com.android.application or com.android.library')
+
+        install {
+            repositories.mavenInstaller {
+                configPom(pom)
+            }
+        }
+
+        task sourcesJar(type: Jar, dependsOn:classes) {
+            classifier = 'sources'
+            from sourceSets.main.allSource
+        }
+
+        task javadocJar(type: Jar, dependsOn:javadoc) {
+            classifier = 'javadoc'
+            from javadoc.destinationDir
+        }
+    }
+
+    // java doc add option if is java 8 or over
+    if (JavaVersion.current().isJava8Compatible()) {
+        allprojects {
+            tasks.withType(Javadoc) {
+                options.addStringOption('Xdoclint:none', '-quiet')
+            }
+        }
+    }
+
+    // artifacts add source jars
+    artifacts {
+        if (project.getPlugins().hasPlugin('com.android.application') ||
+                project.getPlugins().hasPlugin('com.android.library')) {
+            archives androidSourcesJar
+            archives androidJavadocsJar
+        } else {
+            archives sourcesJar
+            archives javadocJar
+        }
+    }
+}
+

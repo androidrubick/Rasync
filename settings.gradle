@@ -1,0 +1,5 @@
+include ':app', ':rasync-annotations', ':rasync-compiler'
+
+include ':library'
+
+apply from: './androidrubick.include.gradle'

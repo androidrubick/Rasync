@@ -1,0 +1,17 @@
+// include all sub projects' modules
+
+// from virtual-makeup-libraries
+def librariesDir = file('./androidrubick-libraries')
+
+librariesDir.listFiles(new FileFilter() {
+    @Override
+    boolean accept(File pathname) {
+        return pathname.isDirectory()
+    }
+}).each { dir ->
+    def includeFile = new File(dir, 'library/include.gradle')
+    if (includeFile.isFile()) {
+        println 'include: ' + includeFile
+        apply from: includeFile
+    }
+}
