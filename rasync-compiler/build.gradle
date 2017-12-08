@@ -8,6 +8,8 @@ dependencies {
     compile project(':rasync-annotations')
     compile DEPS_GOOGLE_AUTO_SERVICE
     compile DEPS_SQUAREUP_JAVAPOET
+
+    testCompile 'junit:junit:4.12'
 }
 
 project.group = MAVEN_PROJECT_GROUP

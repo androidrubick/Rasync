@@ -111,6 +111,17 @@ afterEvaluate { project ->
             project.getPlugins().hasPlugin('com.android.library')) {
         ARLog('process android library')
 
+        // see https://mbcdev.com/2015/02/18/building-javadocs-for-android-library-projects-with-gradle/
+        android.libraryVariants.all { variant ->
+            if (variant.name == 'release') {
+                ARLog("get java compile source & classpaths of release variant")
+                def androidJar = "${android.sdkDirectory}/platforms/${android.compileSdkVersion}/android.jar"
+                project.ext.AR_EXTRAS.JAVADOC_SOURCES = variant.javaCompile.source
+                project.ext.AR_EXTRAS.JAVADOC_CLASSPATHS = files(variant.javaCompile.classpath.files) + files(androidJar)
+                ARLog("AR_EXTRAS.JAVADOC_CLASSPATHS : $AR_EXTRAS.JAVADOC_CLASSPATHS.files")
+            }
+        }
+
         task install(type: Upload, dependsOn: assemble) {
             repositories.mavenInstaller {
                 configuration = configurations.archives
@@ -120,8 +131,31 @@ afterEvaluate { project ->
         }
 
         task androidJavadocs(type: Javadoc) {
-            source = android.sourceSets.main.java.source
+            source = AR_EXTRAS.JAVADOC_SOURCES ? AR_EXTRAS.JAVADOC_SOURCES : android.sourceSets.main.java.source
             classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+            if (AR_EXTRAS.JAVADOC_CLASSPATHS) {
+                classpath += AR_EXTRAS.JAVADOC_CLASSPATHS
+            }
+
+            options {
+                // set locale, use default now
+                // locale = 'en_US'
+                // set encoding / charset
+                encoding AR_EXTRAS.PROJECT_ENCODING
+                charSet AR_EXTRAS.PROJECT_ENCODING
+                links "http://docs.oracle.com/javase/7/docs/api/"
+                links Locale.default.language == 'zh' ? "http://www.android-doc.com/reference/" : "http://d.android.com/reference/"
+            }
+//            options.encoding = AR_PROJECT_ENCODING
+//            options.charSet = AR_PROJECT_ENCODING
+//            options.links("http://docs.oracle.com/javase/7/docs/api/")
+//            options.links("http://d.android.com/reference/")
+            // see https://mbcdev.com/2015/02/18/building-javadocs-for-android-library-projects-with-gradle/
+            // options.linksOffline("http://d.android.com/reference", "${android.sdkDirectory}/docs/reference");
+
+            // We're not excluding these generated files currently
+            // exclude '**/BuildConfig.java'
+            // exclude '**/R.java'
         }
 
         task androidJavadocsJar(type: Jar, dependsOn: androidJavadocs) {

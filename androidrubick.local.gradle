@@ -12,8 +12,9 @@
  */
 allprojects {
     project.ext.ARLog = { Object...msgs ->
-        msgs.each { msg ->
-            println "[$project.name] ${String.valueOf(msg)}"
+        if (msgs) {
+            print "[$project.name] "
+            println msgs.join(' ')
         }
     }
 
@@ -22,11 +23,12 @@ allprojects {
     }
 
     project.ext.propertyTrue = { String name ->
-        if (project.hasProperty(name)) {
-            return propertyValueTrue(String.valueOf(project.property(name)))
-        }
-        return false
+        return project.hasProperty(name) && propertyValueTrue(String.valueOf(project.property(name)))
     }
+
+    // add AR extras of project for internal uses
+    project.ext.AR_EXTRAS = new HashMap<>();
+    project.ext.AR_EXTRAS.PROJECT_ENCODING = System.getProperty('file.encoding', 'UTF-8')
 }
 
 // Define local repository & maven cache home, for:
@@ -70,17 +72,20 @@ allprojects {
         }
     }
 
-    // 对满足条件（即发布）的模块增加行为
-    if (validProject(project)) {
-        gradle.taskGraph.afterTask { Task task ->
-            if (task.name == 'uploadArchives' && task.project == project) {
-                String subPath = MAVEN_PROJECT_GROUP.replace('.', File.separator)
-                subPath += File.separator
-                subPath += MAVEN_POM_ARTIFACT_ID
-                def myLocalMavenCacheDir = new File(LOCAL_MAVEN_CACHE_HOME, subPath)
-                delete myLocalMavenCacheDir
-                ARLog("delete cached dir: $myLocalMavenCacheDir")
+    project.afterEvaluate { project ->
+        // 对满足条件（即发布）的模块增加行为
+        if (validProject(project)) {
+            gradle.taskGraph.afterTask { Task task ->
+                if (task.name == 'uploadArchives' && task.project == project) {
+                    String subPath = MAVEN_PROJECT_GROUP.replace('.', File.separator)
+                    subPath += File.separator
+                    subPath += MAVEN_POM_ARTIFACT_ID
+                    def myLocalMavenCacheDir = new File(LOCAL_MAVEN_CACHE_HOME, subPath)
+                    delete myLocalMavenCacheDir
+                    ARLog("delete cached dir: $myLocalMavenCacheDir")
+                }
             }
         }
     }
+
 }
