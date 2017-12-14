@@ -51,6 +51,8 @@ public class TestProxy {
 //        a.b(new HashMap<String, Object>(), "");
         a.put("");
         a.get();
+
+        System.out.println(Proxy.getInvocationHandler(a));
     }
 
     private static <TS, T extends TS> TS proxy(final T t) {

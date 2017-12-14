@@ -47,6 +47,17 @@ public class AsyncProxy {
         return (TS) Proxy.newProxyInstance(raw.getClass().getClassLoader(), superInterfaces, new AsyncProxyWrapper(raw));
     }
 
+    /**
+     * check target object whether is an async proxy or not
+     * @param o target object
+     * @return if target object is an async proxy, return true
+     * @since 1.0.0
+     */
+    public static boolean isAsyncProxy(Object o) {
+        return null != o && Proxy.isProxyClass(o.getClass())
+                && Proxy.getInvocationHandler(o) instanceof AsyncProxyWrapper;
+    }
+
     private static class AsyncProxyWrapper implements Handler.Callback, InvocationHandler {
         private final Handler mHandler = new Handler(Looper.getMainLooper(), this);
         private final Object mRaw;
